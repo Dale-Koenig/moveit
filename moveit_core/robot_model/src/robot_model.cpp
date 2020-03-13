@@ -1004,18 +1004,25 @@ LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
 
   if (shapes.empty())
   {
-    const std::vector<urdf::VisualSharedPtr>& vis_array = urdf_link->visual_array.empty() ?
-                                                              std::vector<urdf::VisualSharedPtr>(1, urdf_link->visual) :
-                                                              urdf_link->visual_array;
-    for (const urdf::VisualSharedPtr& vis : vis_array)
+    ros::NodeHandle nh;
+    bool override_collision;
+    nh.param("/moveit_override_empty_collision", override_collision, true);
+
+    if (override_collision)
     {
-      if (vis && vis->geometry)
+      const std::vector<urdf::VisualSharedPtr>& vis_array =
+          urdf_link->visual_array.empty() ? std::vector<urdf::VisualSharedPtr>(1, urdf_link->visual) :
+                                            urdf_link->visual_array;
+      for (const urdf::VisualSharedPtr& vis : vis_array)
       {
-        shapes::ShapeConstPtr s = constructShape(vis->geometry.get());
-        if (s)
+        if (vis && vis->geometry)
         {
-          shapes.push_back(s);
-          poses.push_back(urdfPose2Isometry3d(vis->origin));
+          shapes::ShapeConstPtr s = constructShape(vis->geometry.get());
+          if (s)
+          {
+            shapes.push_back(s);
+            poses.push_back(urdfPose2Isometry3d(vis->origin));
+          }
         }
       }
     }
@@ -1025,8 +1032,9 @@ LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
       // clang-format off
       ROS_WARN_STREAM_NAMED(LOGNAME, "Link " << urdf_link->name << ": "
                                      "Overriding empty collision geometry using visual geometry. "
-                                     "Empty collision geometry is currently not supported. "
-                                     "Fix your URDF file by explicitly specifying collision geometry.");
+                                     "Fix your URDF file by explicitly specifying collision geometry. "
+                                     "This functionality can be disabled for all urdfs by setting the global rosparam "
+                                     "/moveit_override_empty_collision to false");
       // clang-format on
     }
   }
