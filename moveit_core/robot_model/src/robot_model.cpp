@@ -990,6 +990,7 @@ LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
   EigenSTL::vector_Isometry3d poses;
 
   for (const urdf::CollisionSharedPtr& col : col_array)
+  {
     if (col && col->geometry)
     {
       shapes::ShapeConstPtr s = constructShape(col->geometry.get());
@@ -999,12 +1000,15 @@ LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
         poses.push_back(urdfPose2Isometry3d(col->origin));
       }
     }
+  }
+
   if (shapes.empty())
   {
     const std::vector<urdf::VisualSharedPtr>& vis_array = urdf_link->visual_array.empty() ?
                                                               std::vector<urdf::VisualSharedPtr>(1, urdf_link->visual) :
                                                               urdf_link->visual_array;
     for (const urdf::VisualSharedPtr& vis : vis_array)
+    {
       if (vis && vis->geometry)
       {
         shapes::ShapeConstPtr s = constructShape(vis->geometry.get());
@@ -1014,6 +1018,17 @@ LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
           poses.push_back(urdfPose2Isometry3d(vis->origin));
         }
       }
+    }
+    // Warn the user if we added some additional shape in the above loop
+    if (!shapes.empty())
+    {
+      // clang-format off
+      ROS_WARN_STREAM_NAMED(LOGNAME, "Link " << urdf_link->name << ": "
+                                     "Overriding empty collision geometry using visual geometry. "
+                                     "Empty collision geometry is currently not supported. "
+                                     "Fix your URDF file by explicitly specifying collision geometry.");
+      // clang-format on
+    }
   }
 
   new_link_model->setGeometry(shapes, poses);
